@@ -39,6 +39,26 @@ storage_client = storage.Client()
 PRICE_RE      = re.compile(r"\$\s?([0-9,]+)")
 YEAR_RE       = re.compile(r"\b(19|20)\d{2}\b")
 MAKE_MODEL_RE = re.compile(r"\b([A-Z][a-z]+)\s+([A-Z][A-Za-z0-9]+)")
+COLOR_RE        = re.compile(
+    r"\b(white|black|silver|gray|grey|red|blue|green|yellow|orange|brown|gold|beige|purple|maroon|navy|tan|champagne|pearl|bronze)\b",
+    re.IGNORECASE
+)
+FUEL_TYPE_RE    = re.compile(
+    r"\b(gasoline|gas|diesel|electric|hybrid|plug-in hybrid|phev|flex|e85|hydrogen|cng|natural gas)\b",
+    re.IGNORECASE
+)
+CYLINDERS_RE    = re.compile(
+    r"\b([3468]|10|12)\s*[-]?\s*cyl(?:inder)?s?\b|\bv\s*([468]|10|12)\b|\b([3468]|10|12)\s*cylinder\b",
+    re.IGNORECASE
+)
+DRIVE_TRAIN_RE  = re.compile(
+    r"\b(fwd|rwd|awd|4wd|4x4|front-wheel drive|rear-wheel drive|all-wheel drive|four-wheel drive)\b",
+    re.IGNORECASE
+)
+TRANSMISSION_RE = re.compile(
+    r"\b(automatic|manual|cvt|dual[-\s]?clutch|dct|automated manual|semi[-\s]?automatic|tiptronic)\b",
+    re.IGNORECASE
+)
 
 # -------------------- HELPERS --------------------
 def _list_run_ids(bucket: str, scrapes_prefix: str) -> list[str]:
@@ -148,6 +168,49 @@ def parse_listing(text: str) -> dict:
             except ValueError: mi = None
     if mi is not None:
         d["mileage"] = mi
+   # color
+    col = COLOR_RE.search(text)
+    if col:
+        d["color"] = col.group(0).lower()
+
+    # fuel type
+    ft = FUEL_TYPE_RE.search(text)
+    if ft:
+        d["fuel_type"] = ft.group(0).lower()
+
+    # cylinders — normalize to an integer (e.g. "V8" or "8-cylinder" → 8)
+    cyl = CYLINDERS_RE.search(text)
+    if cyl:
+        raw = next(g for g in cyl.groups() if g is not None)
+        try:
+            d["cylinders"] = int(raw)
+        except ValueError:
+            pass
+
+    # drive train — normalize abbreviations to a canonical label
+    dt = DRIVE_TRAIN_RE.search(text)
+    if dt:
+        _dt_map = {
+            "fwd": "FWD", "front-wheel drive": "FWD",
+            "rwd": "RWD", "rear-wheel drive": "RWD",
+            "awd": "AWD", "all-wheel drive": "AWD",
+            "4wd": "4WD", "4x4": "4WD", "four-wheel drive": "4WD",
+        }
+        d["drive_train"] = _dt_map.get(dt.group(0).lower(), dt.group(0).upper())
+
+    # transmission — normalize to a canonical label
+    tr = TRANSMISSION_RE.search(text)
+    if tr:
+        _tr_map = {
+            "automatic": "Automatic",
+            "manual": "Manual",
+            "cvt": "CVT",
+            "dual-clutch": "DCT", "dual clutch": "DCT", "dct": "DCT",
+            "automated manual": "DCT",
+            "semi-automatic": "Semi-Automatic", "semi automatic": "Semi-Automatic",
+            "tiptronic": "Tiptronic",
+        }
+        d["transmission"] = _tr_map.get(tr.group(0).lower(), tr.group(0).title())
 
     return d
 
