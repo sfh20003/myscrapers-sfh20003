@@ -170,8 +170,11 @@ def _vertex_extract_fields(raw_text: str) -> dict:
             "model": {"type": "string", "nullable": True},
             "mileage": {"type": "integer", "nullable": True},
             "color": {"type": "string", "nullable": True},
+            "transmission":{"type": "string", "nullable": True},
+            "cylinder": {"type": "integer", "nullable": True},
+            "fuel_type": {"type": "string", "nullable": True},  
         },
-        "required": ["price", "year", "make", "model", "mileage","color"]
+        "required": ["price", "year", "make", "model", "mileage","color","transmission","cylinder","fuel_type"]
     }
 
     # System instruction (will be prepended to the prompt)
@@ -181,6 +184,9 @@ def _vertex_extract_fields(raw_text: str) -> dict:
         "If a value is not present, use null. "
         "Rules: integers for price/year/mileage; price in USD; mileage in miles; "
         "color is the exterior car color. Examples are black, silver, red, green, blue, etc."
+        "transmission type is either automatic or manual. For automatic specify if possible the type such as CVT or DCT."
+        "Cylinder is the number of cylinders in the car."
+        "Fuel_type can be gasoline, diesel, and electrified." 
         "do not infer values not explicitly present; do not add extra keys."
     )
 
@@ -321,6 +327,9 @@ def llm_extract_http(request: Request):
                 "model": parsed.get("model"),
                 "mileage": parsed.get("mileage"),
                 "color": parsed.get("color"),
+                "transmission": parsed.get("transmission"),
+                "cylinder": parsed.get("cylinder"),
+                "fuel_type": parsed.get("fuel_type"),
                 "llm_provider": "vertex",
                 "llm_model": LLM_MODEL,
                 "llm_ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
