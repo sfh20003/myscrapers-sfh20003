@@ -172,9 +172,11 @@ def _vertex_extract_fields(raw_text: str) -> dict:
             "color": {"type": "string", "nullable": True},
             "transmission":{"type": "string", "nullable": True},
             "cylinder": {"type": "integer", "nullable": True},
-            "fuel_type": {"type": "string", "nullable": True},  
+            "fuel_type": {"type": "string", "nullable": True},
+            "city": {"type": "string", "nullable": True},
+            "state": {"type": "string", "nullable": True}, 
         },
-        "required": ["price", "year", "make", "model", "mileage","color","transmission","cylinder","fuel_type"]
+        "required": ["price", "year", "make", "model", "mileage","color","transmission","cylinder","fuel_type","city","state"]
     }
 
     # System instruction (will be prepended to the prompt)
@@ -182,12 +184,21 @@ def _vertex_extract_fields(raw_text: str) -> dict:
         "Extract ONLY the following fields from the input text. "
         "Return a strict JSON object that conforms to the provided schema. "
         "If a value is not present, use null. "
-        "Rules: integers for price/year/mileage; price in USD; mileage in miles; "
-        "color is the exterior car color. Examples are black, silver, red, green, blue, etc."
-        "transmission type is either automatic or manual. For automatic specify if possible the type such as CVT or DCT."
-        "Cylinder is the number of cylinders in the car."
-        "Fuel_type can be gasoline, diesel, and electrified." 
-        "do not infer values not explicitly present; do not add extra keys."
+        "Rules:\n"
+        "- price: integer in USD (strip $ and commas)\n"
+        "- year: 4-digit integer (model year of the vehicle)\n"
+        "- mileage: integer in miles (look for 'mi', 'miles', 'odometer', 'k miles' → multiply k by 1000)\n"
+        "- make: brand name (e.g. Toyota, Ford, BMW)\n"
+        "- model: model name (e.g. Camry, F-150, 3 Series)\n"
+        "- color: exterior color as lowercase string (e.g. black, silver, red). null if not mentioned.\n"
+        "- transmission: 'Automatic', 'Manual', 'CVT', or 'DCT'. null if not mentioned.\n"
+        "- cylinder: INTEGER number of cylinders (e.g. 4, 6, 8). "
+        "  Look for patterns like 'V6', 'V8', '4-cylinder', '6 cyl', 'inline-4', 'I4', 'flat-6'. "
+        "  Return ONLY the integer (6, 8, 4, etc.), never null if any cylinder mention exists.\n"
+        "- fuel_type: one of 'gasoline', 'diesel', 'electric', 'hybrid'. null if not mentioned.\n"
+        "- city: the city where the listing is posted (from the listing text or URL context). null if unknown.\n"
+        "- state: 2-letter US state abbreviation (e.g. CT, NY). null if unknown.\n"
+        "Do not infer values not explicitly present. Do not add extra keys."
     )
 
     # FIX: Combine instruction and text into one prompt string (SDK compatibility)
@@ -330,6 +341,8 @@ def llm_extract_http(request: Request):
                 "transmission": parsed.get("transmission"),
                 "cylinder": parsed.get("cylinder"),
                 "fuel_type": parsed.get("fuel_type"),
+                "city": parsed.get("city"),
+                "state": parsed.get("state"),
                 "llm_provider": "vertex",
                 "llm_model": LLM_MODEL,
                 "llm_ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
