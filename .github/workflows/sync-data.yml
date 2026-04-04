@@ -1,0 +1,90 @@
+name: Sync Train-DT Artifacts to Results
+run-name: Syncing train-dt artifacts for ${{ github.ref_name }} by @${{ github.actor }}
+
+on:
+  schedule:
+    - cron: '50 * * * *'  # Every hour at 50 minutes past
+  workflow_dispatch:       # Also allows manual trigger from GitHub UI
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  PROJECT_ID:                  ${{ vars.PROJECT_ID }}
+  BUCKET_NAME:                 ${{ vars.BUCKET_NAME }}
+  WORKLOAD_IDENTITY_PROVIDER:  ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+  DEPLOYER_SA:                 ${{ vars.DEPLOYER_SA }}
+  GCS_PREDS_PREFIX:            "structured/preds"
+  OUTPUT_DIR:                  "Results"
+
+jobs:
+  sync_artifacts:
+    runs-on: ubuntu-latest
+    steps:
+
+      # --- 1. SETUP & AUTHENTICATION ---
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auth (WIF) and Setup gcloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      # --- 2. FIND LATEST RUN AND DOWNLOAD ALL ARTIFACTS ---
+      - name: Find Latest Run and Download Artifacts
+        id: download_artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 2a. Find the latest folder in GCS under structured/preds/
+          LATEST_RUN_DIR=$(gsutil ls -d gs://${BUCKET_NAME}/${GCS_PREDS_PREFIX}/*/ | tail -1)
+
+          # 2b. Extract just the timestamp folder name (e.g. 2026040412)
+          LATEST_RUN_ID=$(echo "$LATEST_RUN_DIR" | sed -E "s|gs://${BUCKET_NAME}/${GCS_PREDS_PREFIX}/||; s|/||")
+
+          echo "Detected latest run ID: $LATEST_RUN_ID"
+          echo "run_id=$LATEST_RUN_ID" >> "$GITHUB_OUTPUT"
+
+          # 2c. Create local Results folder
+          mkdir -p ${{ env.OUTPUT_DIR }}
+
+          BASE="gs://${BUCKET_NAME}/${GCS_PREDS_PREFIX}/${LATEST_RUN_ID}"
+
+          # 2d. Download only the 3 required artifacts
+          gsutil cp "${BASE}/preds.csv"                  "${{ env.OUTPUT_DIR }}/${LATEST_RUN_ID}-preds.csv"              || true
+          gsutil cp "${BASE}/permutation_importance.csv" "${{ env.OUTPUT_DIR }}/${LATEST_RUN_ID}-permutation_importance.csv" || true
+          gsutil cp "${BASE}/pdp_top3.png"               "${{ env.OUTPUT_DIR }}/${LATEST_RUN_ID}-pdp_top3.png"           || true
+
+          echo "Download complete for run: $LATEST_RUN_ID"
+
+      # --- 3. COMMIT AND PUSH ---
+      - name: Commit and Push Artifacts
+        if: success()
+        run: |
+          git config --global user.name  'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          RUN_ID="${{ steps.download_artifacts.outputs.run_id }}"
+
+          # Stage everything in Results/
+          git add ${{ env.OUTPUT_DIR }}/
+
+          # Only commit if there are actual changes
+          git diff --staged --quiet && echo "No new files to commit" && exit 0
+
+          git commit -m "🤖 Train-DT Sync: Add artifacts for run $RUN_ID"
+
+          # Rebase to avoid push conflicts
+          git pull --rebase origin main
+
+          git push
