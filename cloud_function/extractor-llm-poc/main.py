@@ -34,7 +34,7 @@ BUCKET_NAME          = os.getenv("GCS_BUCKET", "")
 STRUCTURED_PREFIX    = os.getenv("STRUCTURED_PREFIX", "structured")
 LLM_PROVIDER         = os.getenv("LLM_PROVIDER", "vertex").lower()
 LLM_MODEL            = os.getenv("LLM_MODEL", "gemini-2.5-flash")
-OVERWRITE_DEFAULT    = os.getenv("OVERWRITE", "false").lower() == "true"
+OVERWRITE_DEFAULT    = os.getenv("OVERWRITE", "true").lower() == "true"
 MAX_FILES_DEFAULT    = int(os.getenv("MAX_FILES", "0") or 0)
 
 # GCS READ RETRY - Use default transient error logic
