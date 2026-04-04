@@ -136,9 +136,13 @@ def run_once(dry_run=False, n_trials=N_TRIALS):
         }
 
     # ---- Features ----
-    cat_cols = ['make', 'model', 'transmission', 'fuel_type',
-                'mileage_bin', 'age_bin', 'state']
-    num_cols = ['year', 'mileage', 'vehicle_age', 'cylinder']
+    all_cat_cols = ['make', 'model', 'transmission', 'fuel_type',
+                    'mileage_bin', 'age_bin', 'state']
+    all_num_cols = ['year', 'mileage', 'vehicle_age', 'cylinder']
+
+    cat_cols = [c for c in all_cat_cols if c in train_df.columns and train_df[c].notna().any()]
+    num_cols = [c for c in all_num_cols if c in train_df.columns and train_df[c].notna().any()]
+
     features = cat_cols + num_cols
     target   = 'price'
 
