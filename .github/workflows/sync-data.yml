@@ -3,7 +3,7 @@ run-name: Syncing train-dt artifacts for ${{ github.ref_name }} by @${{ github.a
 
 on:
   schedule:
-    - cron: '50 * * * *'  # Every hour at 50 minutes past
+    - cron: '50 22 * * *'  # 10:50 PM UTC = 6:50 PM EDT
   workflow_dispatch:       # Also allows manual trigger from GitHub UI
 
 permissions:

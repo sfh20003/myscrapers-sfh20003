@@ -29,7 +29,7 @@ env:
   DEPLOYER_SA: ${{ vars.DEPLOYER_SA }}               # GitHub deploy SA (email)
   WORKLOAD_IDENTITY_PROVIDER: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
   SCHEDULE_BODY: ${{ vars.TRAIN_DT_BODY ||'{"dry_run":true}'}}
-  CRON_EXPR: "20 * * * *"                             # :20 each hour (ET)
+  CRON_EXPR: "40 18 * * *"  # 6:40 PM Eastern daily
 
 jobs:
   deploy:
